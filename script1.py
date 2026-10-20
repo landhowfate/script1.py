@@ -8,7 +8,8 @@ st.caption("矩阵乘法 · Cramer法则 · 逆矩阵求法  三步教学")
 
 mode = st.sidebar.radio(
     "选择讲解功能",
-    ["矩阵乘法动态讲解", "Cramer法则动态讲解", "逆矩阵求法动态讲解"]
+    ["矩阵乘法动态讲解", "Cramer法则动态讲解", "逆矩阵求法动态讲解",
+     "💬 线性代数AI问答"]
 )
 
 EPS = 1e-10
@@ -445,6 +446,199 @@ elif mode == "逆矩阵求法动态讲解":
                         "- **初等行变换法**：通用，工程上首选，与高斯消元同源\n"
                         "- det(A) = 0 时不可逆，叫奇异矩阵")
 
+# ============================================================
+# 模块四：本地AI问答（内置知识库，关键词匹配）
+# ============================================================
+elif mode == "💬 线性代数AI问答":
+    st.header("💬 线性代数AI助教问答")
+    st.caption("本地知识库 · 回答线性代数基础概念问题 · 不调用外部API")
+
+    # ---------- 内置知识库 ----------
+    # 每条 = (关键词列表, 回答内容, 可选公式)
+    KB = [
+        {
+            "kw": ["矩阵乘法", "矩阵相乘", "怎么乘", "乘法规则", "ab不等于ba", "交换律"],
+            "ans": "**矩阵乘法规则**：只有当左矩阵的列数 = 右矩阵的行数时才能相乘。\n"
+                   "结果 C[i][j] = A的第i行 与 B的第j列 对应元素相乘再求和。\n\n"
+                   "⚠️ **最重要的性质：一般情况下 AB ≠ BA**（不满足交换律），"
+                   "甚至当 AB 有定义时，BA 可能根本不存在。",
+            "latex": r"C_{ij} = \sum_{k} A_{ik} B_{kj}"
+        },
+        {
+            "kw": ["逆矩阵", "逆矩阵存在", "什么时候可逆", "不可逆", "奇异", "非奇异", "det=0", "行列式为0"],
+            "ans": "**逆矩阵存在的充要条件**：A 是方阵，且 det(A) ≠ 0（非奇异矩阵）。\n\n"
+                   "如果 det(A) = 0，A 叫**奇异矩阵**，不存在逆矩阵，对应的线性方程组 "
+                   "Ax = b 要么无解、要么有无穷多解。\n\n"
+                   "求法：二阶直接用公式；三阶以上推荐初等行变换法 [A|I] → [I|A⁻¹]。",
+            "latex": r"A A^{-1} = A^{-1} A = I \quad\Longleftrightarrow\quad \det(A) \neq 0"
+        },
+        {
+            "kw": ["伴随矩阵", "伴随", "adj"],
+            "ans": "**伴随矩阵 adj(A)**：是 A 的所有代数余子式矩阵的转置。\n"
+                   "二阶时特别简单：主对角线元素互换，副对角线元素变号。\n"
+                   "逆矩阵公式：A⁻¹ = adj(A) / det(A)。",
+            "latex": r"A^{-1} = \frac{1}{\det(A)} \cdot \mathrm{adj}(A)"
+        },
+        {
+            "kw": ["cramer", "克莱姆", "克拉默", "cramer法则", "适用条件"],
+            "ans": "**Cramer法则适用条件**：\n"
+                   "1. 方程个数 = 未知数个数（系数矩阵是方阵）\n"
+                   "2. 系数行列式 D ≠ 0\n\n"
+                   "满足时，解为 xᵢ = Dᵢ / D，其中 Dᵢ 是把 D 的第 i 列换成常数项得到的行列式。\n\n"
+                   "⚠️ 缺点：n 较大时计算量爆炸，工程上一般用高斯消元；本法则主要用于理论推导。",
+            "latex": r"x_i = \frac{D_i}{D}, \quad D_i = \det(A_{\leftarrow b})"
+        },
+        {
+            "kw": ["行列式", "det", "行列式定义", "几何意义"],
+            "ans": "**行列式 det(A)**：是方阵对应的一个标量。\n\n"
+                   "几何意义：它表示矩阵对应的线性变换对**面积/体积的缩放倍数**。\n"
+                   "- det > 0：保持定向\n"
+                   "- det < 0：翻转定向（镜像）\n"
+                   "- det = 0：线性变换把空间降维了（面积/体积被压成 0）",
+            "latex": r"|\det(A)| = \text{平行六面体体积}"
+        },
+        {
+            "kw": ["秩", "rank", "矩阵的秩"],
+            "ans": "**矩阵的秩 rank(A)**：矩阵中线性无关的行（或列）的最大个数。\n\n"
+                   "它决定了线性方程组解的情况：\n"
+                   "- rank(A) = rank(A|b) = n：唯一解\n"
+                   "- rank(A) = rank(A|b) < n：无穷多解\n"
+                   "- rank(A) < rank(A|b)：无解",
+            "latex": r"\mathrm{rank}(A) \leq \min(m, n)"
+        },
+        {
+            "kw": ["单位矩阵", "单位阵", "identity", "eye"],
+            "ans": "**单位矩阵 I**：主对角线全是 1，其余全是 0 的方阵。\n"
+                   "性质：I 乘任何矩阵等于那个矩阵本身，即 AI = IA = A。\n"
+                   "求逆矩阵时构造的 [A|I] 就是从单位阵出发做行变换。",
+            "latex": r"I_n = \begin{bmatrix} 1 & & \\ & \ddots & \\ & & 1 \end{bmatrix}"
+        },
+        {
+            "kw": ["转置", "transpose", "AT"],
+            "ans": "**矩阵转置 Aᵀ**：把 A 的行和列互换，即 (Aᵀ)[i][j] = A[j][i]。\n\n"
+                   "常用性质：\n"
+                   "- (Aᵀ)ᵀ = A\n"
+                   "- (AB)ᵀ = Bᵀ Aᵀ（注意顺序反过来）\n"
+                   "- (A⁻¹)ᵀ = (Aᵀ)⁻¹",
+            "latex": r"(AB)^T = B^T A^T"
+        },
+        {
+            "kw": ["线性方程组", "方程组解", "解的情况", "无解", "无穷多解", "唯一解"],
+            "ans": "**线性方程组 Ax = b 解的判定**（用秩判断）：\n\n"
+                   "1. rank(A) = rank(A|b) = n（未知数个数）→ **唯一解**\n"
+                   "2. rank(A) = rank(A|b) < n → **无穷多解**\n"
+                   "3. rank(A) < rank(A|b) → **无解**\n\n"
+                   "其中 A|b 是把常数项 b 拼在 A 右边的增广矩阵。",
+            "latex": r"\text{唯一解} \iff \mathrm{rank}(A) = n"
+        },
+        {
+            "kw": ["高斯消元", "消元法", "初等行变换"],
+            "ans": "**初等行变换**包括三种操作：\n"
+                   "1. 交换两行\n"
+                   "2. 某一行乘一个非零常数\n"
+                   "3. 某一行加上另一行的若干倍\n\n"
+                   "初等行变换**不改变方程组的解**，也**不改变矩阵的秩**。\n"
+                   "求逆矩阵、解方程组、求秩都靠它。",
+            "latex": r"[A | I] \xrightarrow{\text{行变换}} [I | A^{-1}]"
+        },
+        {
+            "kw": ["加法", "矩阵加法", "矩阵相减"],
+            "ans": "**矩阵加减法**：要求两个矩阵**维度完全相同**，对应位置元素直接加减。\n\n"
+                   "⚠️ 维度不同的矩阵不能加减，但可以用广播（broadcast）做标量乘、数乘。",
+            "latex": r"(A \pm B)_{ij} = A_{ij} \pm B_{ij}"
+        },
+        {
+            "kw": ["数乘", "标量乘", "矩阵乘常数"],
+            "ans": "**数乘 kA**：常数 k 乘到矩阵的每一个元素上。\n\n"
+                   "注意和矩阵乘法区分：\n"
+                   "- 数乘：k·A，每个元素都乘 k\n"
+                   "- 矩阵乘法：A·B，按行×列规则，不是对应位置相乘",
+            "latex": r"(kA)_{ij} = k \cdot A_{ij}"
+        },
+        {
+            "kw": ["hello", "你好", "hi", "在吗"],
+            "ans": "你好！我是线性代数AI助教。\n"
+                   "你可以问我：\n"
+                   "- 矩阵乘法怎么算？\n"
+                   "- 逆矩阵什么时候不存在？\n"
+                   "- Cramer法则适用条件？\n"
+                   "- 行列式的几何意义是什么？\n"
+                   "- 线性方程组怎么判断有没有解？",
+            "latex": None
+        },
+    ]
+
+    FALLBACK = ("这个问题我暂时没覆盖到，试试换个问法，或者参考下面这些我能回答的话题：\n"
+                "- 矩阵乘法规则与交换律\n"
+                "- 逆矩阵存在条件、伴随矩阵\n"
+                "- Cramer法则适用条件\n"
+                "- 行列式定义与几何意义\n"
+                "- 矩阵的秩、线性方程组解的判定\n"
+                "- 初等行变换、高斯消元\n"
+                "- 单位矩阵、转置、数乘")
+
+    # ---------- 回答匹配函数 ----------
+    def answer(q: str):
+        q_low = q.lower()
+        best, best_score = None, 0
+        for item in KB:
+            score = sum(1 for kw in item["kw"] if kw.lower() in q_low)
+            if score > best_score:
+                best, best_score = item, score
+        if best and best_score > 0:
+            return best["ans"], best.get("latex")
+        return FALLBACK, None
+
+    # ---------- 对话历史 ----------
+    if "chat_hist" not in st.session_state:
+        st.session_state.chat_hist = [
+            {"role": "assistant",
+             "content": "👋 你好，我是线性代数AI助教。你可以问我矩阵乘法、逆矩阵、Cramer法则、行列式、秩、方程组解的判定等基础问题。",
+             "latex": None}
+        ]
+
+    # 渲染历史
+    for msg in st.session_state.chat_hist:
+        with st.chat_message(msg["role"]):
+            st.markdown(msg["content"])
+            if msg.get("latex"):
+                st.latex(msg["latex"])
+
+    # 推荐问题
+    st.markdown("**试试问我：**")
+    sugg = ["矩阵乘法为什么不满足交换律？",
+            "逆矩阵什么时候不存在？",
+            "Cramer法则的适用条件是什么？",
+            "行列式的几何意义？",
+            "线性方程组怎么判断有没有解？"]
+    cols = st.columns(len(sugg))
+    for i, s in enumerate(sugg):
+        if cols[i].button(s, key=f"sug_{i}"):
+            user_q = s
+            st.session_state.chat_hist.append({"role": "user", "content": user_q, "latex": None})
+            with st.chat_message("user"):
+                st.markdown(user_q)
+            ans, latex = answer(user_q)
+            st.session_state.chat_hist.append({"role": "assistant", "content": ans, "latex": latex})
+            with st.chat_message("assistant"):
+                st.markdown(ans)
+                if latex:
+                    st.latex(latex)
+            st.rerun()
+
+    # 输入框
+    user_input = st.chat_input("输入你的线性代数问题...")
+    if user_input:
+        st.session_state.chat_hist.append({"role": "user", "content": user_input, "latex": None})
+        with st.chat_message("user"):
+            st.markdown(user_input)
+        ans, latex = answer(user_input)
+        st.session_state.chat_hist.append({"role": "assistant", "content": ans, "latex": latex})
+        with st.chat_message("assistant"):
+            st.markdown(ans)
+            if latex:
+                st.latex(latex)
+
 # 页脚
 st.markdown("---")
-st.caption("线性代数AI Agent | 矩阵乘法 · Cramer法则 · 逆矩阵")
+st.caption("线性代数AI Agent | 矩阵乘法 · Cramer法则 · 逆矩阵 · 本地AI问答")
